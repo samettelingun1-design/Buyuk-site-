@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanal Bahis & Eğlence Platformu</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #38bdf8;
+            --accent-hover: #0ea5e9;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --text: #f8fafc;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: var(--card-bg);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #334155;
+        }
+        .logo { font-size: 24px; font-weight: bold; color: var(--accent); }
+        .wallet { background: #334155; padding: 8px 16px; border-radius: 8px; font-weight: bold; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 15px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { background: var(--card-bg); border: none; color: var(--text); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        .tab-btn.active, .tab-btn:hover { background: var(--accent); color: #000; font-weight: bold; }
+        .section { display: none; background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .section.active { display: block; }
+        
+        /* Zeplin Alanı */
+        .zeppelin-arena { text-align: center; padding: 40px; background: #090d16; border-radius: 8px; margin-bottom: 15px; }
+        .multiplier { font-size: 48px; font-weight: bold; color: var(--success); margin-bottom: 20px; }
+        
+        /* Maç Listesi */
+        .match-card { background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .match-info { font-size: 16px; font-weight: bold; }
+        .odds-container { display: flex; gap: 10px; }
+        .odd-btn { background: #334155; border: none; color: white; padding: 8px 15px; border-radius: 6px; cursor: pointer; }
+        .odd-btn:hover { background: var(--accent); color: #000; }
+
+        input, button { padding: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; }
+        .btn-primary { background: var(--accent); color: #000; font-weight: bold; cursor: pointer; border: none; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .flex-group { display: flex; gap: 10px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">🚀 SanalBahis Arena</div>
+        <div class="wallet">Bakiye: <span id="balance">10000</span> ₺</div>
+    </header>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('zeppelin')">Zeplin (Aviator)</button>
+            <button class="tab-btn" onclick="switchTab('sports')">Spor / Maçlar</button>
+            <button class="tab-btn" onclick="switchTab('profile')">Profil & Cüzdan</button>
+        </div>
+
+        <!-- ZEPPLIN SECTION -->
+        <div id="zeppelin" class="section active">
+            <h2>Zeplin Uçuş Simülasyonu</h2>
+            <div class="zeppelin-arena">
+                <div id="z-multiplier" class="multiplier">1.00x</div>
+                <div id="z-status">Uçuşa hazırlanıyor...</div>
+            </div>
+            <div class="flex-group">
+                <input type="number" id="z-bet" placeholder="Bahis Miktarı" value="100">
+                <button class="btn-primary" id="z-btn" onclick="startZeppelin()">Bahis Yap & Uçur</button>
+            </div>
+        </div>
+
+        <!-- SPORTS SECTION -->
+        <div id="sports" class="section">
+            <h2>Günün Derbileri ve Maçları</h2>
+            <div id="match-list">
+                <!-- Maçlar JavaScript ile doldurulacak -->
+            </div>
+        </div>
+
+        <!-- PROFILE SECTION -->
+        <div id="profile" class="section">
+            <h2>Kullanıcı Paneli</h2>
+            <p>Hoş geldin! Başlangıç bonusun: 10.000 ₺</p>
+            <button class="btn-primary" onclick="resetBalance()">Bakiyeyi Sıfırla (10k Yap)</button>
+        </div>
+    </div>
+
+    <script>
+        // Bakiye Yönetimi (localStorage kullanarak tarayıcıda saklanır)
+        let balance = localStorage.getItem('sanal_balance') ? parseFloat(localStorage.getItem('sanal_balance')) : 10000;
+        updateUI();
+
+        function updateUI() {
+            document.getElementById('balance').innerText = balance.toFixed(2);
+            localStorage.setItem('sanal_balance', balance);
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function resetBalance() {
+            balance = 10000;
+            updateUI();
+            alert("Bakiyeniz 10.000 ₺ olarak yenilendi!");
+        }
+
+        // --- ZEPPELIN MANTIĞI ---
+        let zInterval;
+        let currentMult = 1.00;
+        let isFlying = false;
+
+        function startZeppelin() {
+            let bet = parseFloat(document.getElementById('z-bet').value);
+            if (isNaN(bet) || bet <= 0 || bet > balance) {
+                alert("Geçersiz bahis miktarı!");
+                return;
+            }
+
+            balance -= bet;
+            updateUI();
+
+            let btn = document.getElementById('z-btn');
+            btn.innerText = "Kaldır (Cashout)";
+            btn.setAttribute("onclick", "cashoutZeppelin()");
+            
+            isFlying = true;
+            currentMult = 1.00;
+            let crashPoint = (Math.random() * 5 + 1.1).toFixed(2); // 1.10x ile 6.10x arası rastgele patlama
+
+            zInterval = setInterval(() => {
+                currentMult += 0.04;
+                document.getElementById('z-multiplier').innerText = currentMult.toFixed(2) + "x";
+                document.getElementById('z-status').innerText = "Zeplin havada süzülüyor...";
+
+                if (currentMult >= crashPoint) {
+                    clearInterval(zInterval);
+                    isFlying = false;
+                    document.getElementById('z-multiplier').innerText = "PATLADI! (" + crashPoint + "x)";
+                    document.getElementById('z-status').innerText = "Geç kaldın, para yandı!";
+                    btn.innerText = "Bahis Yap & Uçur";
+                    btn.setAttribute("onclick", "startZeppelin()");
+                }
+            }, 100);
+        }
+
+        function cashoutZeppelin() {
+            if (!isFlying) return;
+            clearInterval(zInterval);
+            isFlying = false;
+
+            let bet = parseFloat(document.getElementById('z-bet').value);
+            let winAmount = bet * currentMult;
+            balance += winAmount;
+            updateUI();
+
+            document.getElementById('z-status').innerText = "Tebrikler! Kazandığın Tutar: " + winAmount.toFixed(2) + " ₺";
+            let btn = document.getElementById('z-btn');
+            btn.innerText = "Bahis Yap & Uçur";
+            btn.setAttribute("onclick", "startZeppelin()");
+        }
+
+        // --- SPOR MAÇLARI MANTIĞI ---
+        const matches = [
+            { id: 1, name: "Galatasaray vs Fenerbahçe (Derbi)", m1: 2.10, x: 3.20, m2: 2.80 },
+            { id: 2, name: "Real Madrid vs Barcelona", m1: 1.90, x: 3.50, m2: 3.10 },
+            { id: 3, name: "Anadolu Efes vs Fenerbahçe Beko (Basket)", m1: 1.70, x: 12.00, m2: 2.10 }
+        ];
+
+        function loadMatches() {
+            let container = document.getElementById('match-list');
+            container.innerHTML = "";
+            matches.forEach(m => {
+                container.innerHTML += `
+                    <div class="match-card">
+                        <div class="match-info">${m.name}</div>
+                        <div class="odds-container">
+                            <button class="odd-btn" onclick="placeSportsBet('${m.name}', 1, ${m.m1})">1 (${m.m1})</button>
+                            <button class="odd-btn" onclick="placeSportsBet('${m.name}', 'X', ${m.x})">X (${m.x})</button>
+                            <button class="odd-btn" onclick="placeSportsBet('${m.name}', 2, ${m.m2})">2 (${m.m2})</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function placeSportsBet(matchName, choice, odd) {
+            let amountStr = prompt(`${matchName} için seçimin: ${choice} (Oran: ${odd})\nNe kadar sanal TL yatırmak istiyorsun?`, "100");
+            if (!amountStr) return;
+            let amount = parseFloat(amountStr);
+
+            if (isNaN(amount) || amount <= 0 || amount > balance) {
+                alert("Yetersiz bakiye veya geçersiz tutar!");
+                return;
+            }
+
+            balance -= amount;
+            updateUI();
+
+            // Simüle edilmiş maç sonucu (Rastgele kazanç/kayıp)
+            setTimeout(() => {
+                let isWon = Math.random() > 0.5; // %50 şans
+                if (isWon) {
+                    let payout = amount * odd;
+                    balance += payout;
+                    updateUI();
+                    alert(`Maç Sonucu: TEBRİKLER! Kazandın! Hesabına ${payout.toFixed(2)} ₺ eklendi.`);
+                } else {
+                    alert(`Maç Sonucu: Maç kaybedildi. Bahsin yandı.`);
+                }
+            }, 1500);
+        }
+
+        loadMatches();
+    </script>
+</body>
+</html>
